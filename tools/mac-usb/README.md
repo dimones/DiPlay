@@ -52,6 +52,27 @@ Never publish runtime identity files, Mac trust/pairing records, or captures con
 
 ## Validation
 
-The repository CI command (shared/common/home unit tests, mobile/home/maphost lint and debug builds) passed locally with the explicit NDK override above. Test reports contain 3,394 tests: zero failures/errors and one skipped test. Native helpers compile with `-Wall -Wextra -Werror`; the public-tree credential scan passes. Loopback transport tests cover timeout/EOF distinction, partial frame retention and oversized-frame rejection.
+The repository CI command (shared/common/home unit tests, mobile/home/maphost lint and debug builds) passed locally with the explicit NDK override above. Test reports contain 3,397 tests: zero failures/errors and one skipped test. Native helpers compile with `-Wall -Wextra -Werror`; the public-tree credential scan passes. Loopback transport tests cover timeout/EOF distinction, partial frame retention and oversized-frame rejection.
 
 This proves the stated Mac/emulator/iPhone lab flow only. It does not prove vehicle compatibility or a production CarPlay receiver.
+
+## Navigation debug window
+
+The Mac USB lab Activity now opens a movable, collapsible navigation log over the live CarPlay surface. Drag its header, use `−` / `+` to collapse or expand, and scroll the body to inspect recent events. It needs no Android system-overlay permission.
+
+The existing iAP2 subscription sends `0x5200` for RouteGuidance component 42. The panel observes the existing reader's `onIncoming` callback and shows only `0x5201` route, `0x5202` maneuver and `0x5204` lane packets. It displays per-type counters and time since the last packet. No second reader or vehicle-output adapter is attached.
+
+Known route fields include state, current road, arrival epoch seconds, remaining seconds/meters, distance to maneuver and maneuver indices. Maneuver packets show index, raw Apple maneuver code, road after the maneuver and driving side. Lane packets show lane index, status and angles. Unknown or incorrectly sized fields remain raw TLV hex; decoded values are per-packet fields, not an inferred merged route state.
+
+Start actual route guidance in the iPhone app to test it; displaying a map alone does not prove metadata delivery. An empty panel means no matching packets have arrived, even if CarPlay video is working.
+
+`run.sh` exports `navigation.log` alongside its other session logs. The app stores up to 2 MiB in `files/mac-usb-navigation.log`, with timestamps, decoded fields and complete `PAYLOAD_HEX` for each navigation packet; its on-screen history is bounded. Each session replaces the app's previous log. To collect it while the session is still active:
+
+```sh
+"$HOME/Library/Android/sdk/platform-tools/adb" -s emulator-5554 \
+  shell run-as com.shihab.diplay.hudtest cat files/mac-usb-navigation.log > /tmp/diplay-navigation.log
+```
+
+These local logs can contain street names and route details. They are not written to logcat or committed to this repository.
+
+Live navigation validation on 2026-10-27: with route guidance started in 2GIS, this lab received `0x5201` and `0x5202`, including route state, ETA, remaining distance/time and two maneuver records. `0x5204` was not observed on that short stationary route; this does not establish whether 2GIS supports lane output on other routes. Dragging the panel was tested over live video. Compact (960×540) and full (1920×720) layouts were inspected at 1.3× font scale, then the emulator's original settings were restored.

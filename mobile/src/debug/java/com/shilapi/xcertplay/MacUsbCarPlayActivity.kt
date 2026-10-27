@@ -37,6 +37,7 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
     private lateinit var video: SurfaceView
     private lateinit var status: TextView
     private lateinit var report: File
+    private lateinit var navigation: MacNavigationDebugPanel
     @Volatile private var vpn: CarPlayVpnService? = null
     @Volatile private var control: Iap2Session? = null
     @Volatile private var transport: LoopbackDuplexByteStream? = null
@@ -64,10 +65,12 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
             textSize = 16f; setTextColor(android.graphics.Color.WHITE)
             setBackgroundColor(0xb0000000.toInt()); setPadding(16, 8, 16, 8)
         }
-        setContentView(FrameLayout(this).apply {
+        val root = FrameLayout(this).apply {
             addView(video, FrameLayout.LayoutParams(-1, -1))
             addView(status, FrameLayout.LayoutParams(-1, -2))
-        })
+        }
+        setContentView(root)
+        navigation = MacNavigationDebugPanel(this, root)
         video.setOnTouchListener { view, event ->
             val released = event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL
             val contacts = if (released) emptyList() else (0 until event.pointerCount)
@@ -100,6 +103,7 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
 
     @Synchronized private fun line(message: String) {
         val safe = message.replace(Regex("usbTransport=\\S+"), "usbTransport=<redacted>")
+        if (message.contains("power/subscriptions sent")) navigation.subscriptionSent()
         Log.i("DiPlayMacUsbMedia", safe)
         report.appendText(safe + "\n")
         main.post { if (!isDestroyed) status.text = safe }
@@ -153,7 +157,7 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
                 "0.2.21", "1", carPlayUsbInterfaceNumber = 3)
             csm.use {
                 Iap2WiredControlClient(it, Iap2MfiAuthenticationClient(mfi)).run(
-                    identification, endpoint, 500, timeoutMillis = 150_000, onProgress = ::line)
+                    identification, endpoint, 500, timeoutMillis = 150_000, onIncoming = navigation::accept, onProgress = ::line)
             }
         } catch (error: Exception) {
             if (!stopped) line("FAILED: ${error.javaClass.simpleName}: ${error.message}")
@@ -179,6 +183,7 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
     override fun onDestroy() {
         stopExperiment()
         main.removeCallbacksAndMessages(null)
+        navigation.close()
         touches.shutdownNow()
         if (bound) unbindService(connection)
         super.onDestroy()

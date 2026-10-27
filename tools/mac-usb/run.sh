@@ -79,4 +79,5 @@ echo "Accept the local VPN dialog in the emulator on the first run."
 wait "$CARKIT_PID" || true
 wait "$ADMIN_PID" || true
 "$ADB" -s "$SERIAL" shell run-as "$APP" cat files/mac-usb-media.log >"$RUN_DIR/android.log" || true
+"$ADB" -s "$SERIAL" shell run-as "$APP" cat files/mac-usb-navigation.log >"$RUN_DIR/navigation.log" || true
 echo "Session ended. Logs: $RUN_DIR"
