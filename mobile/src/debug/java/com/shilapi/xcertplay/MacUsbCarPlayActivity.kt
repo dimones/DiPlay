@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -30,11 +31,14 @@ import java.util.concurrent.TimeUnit
 
 /** Three-minute USB media experiment; launch explicitly through adb, never auto-start. */
 class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
+    private companion object { const val CLUSTER_WINDOW_WIDTH_DP = 640 }
     private val main = Handler(Looper.getMainLooper())
-    private val surfaceReady = CountDownLatch(1)
+    private val surfaceReady = CountDownLatch(2)
     private val serviceReady = CountDownLatch(1)
     private val touches = Executors.newSingleThreadExecutor()
     private lateinit var video: SurfaceView
+    private lateinit var clusterVideo: SurfaceView
+    private lateinit var clusterStatus: TextView
     private lateinit var status: TextView
     private lateinit var report: File
     private lateinit var navigation: MacNavigationDebugPanel
@@ -70,6 +74,28 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
             addView(status, FrameLayout.LayoutParams(-1, -2))
         }
         setContentView(root)
+        clusterVideo = SurfaceView(this).apply {
+            setZOrderMediaOverlay(true)
+            holder.addCallback(object : SurfaceHolder.Callback {
+                override fun surfaceCreated(holder: SurfaceHolder) { surfaceReady.countDown() }
+                override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+                override fun surfaceDestroyed(holder: SurfaceHolder) { stopExperiment() }
+            })
+        }
+        clusterStatus = TextView(this).apply {
+            text = "Cluster · stream 111 · waiting for iPhone"
+            textSize = 12f; setTextColor(android.graphics.Color.WHITE)
+            setBackgroundColor(0xc0000000.toInt())
+        }
+        val clusterWindow = FrameLayout(this).apply {
+            isClickable = true // The cluster has no input; do not send these taps to the main screen.
+            addView(clusterVideo, FrameLayout.LayoutParams(-1, -1))
+            addView(clusterStatus, FrameLayout.LayoutParams(-1, -2))
+        }
+        val clusterWidth = minOf((CLUSTER_WINDOW_WIDTH_DP * resources.displayMetrics.density).toInt(), resources.displayMetrics.widthPixels / 2)
+        root.addView(clusterWindow, FrameLayout.LayoutParams(clusterWidth, clusterWidth * 9 / 16).apply {
+            gravity = Gravity.BOTTOM or if (resources.displayMetrics.widthPixels >= clusterWidth * 3) Gravity.RIGHT else Gravity.LEFT
+        })
         navigation = MacNavigationDebugPanel(this, root)
         video.setOnTouchListener { view, event ->
             val released = event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL
@@ -131,10 +157,30 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
             val displayWidth = video.width.coerceAtLeast(640)
             val displayHeight = video.height.coerceAtLeast(360)
             val config = AirPlayConfig("DiPlay Mac Lab", mac, mac, "950.7.1",
-                AirPlayDisplayConfig(displayWidth, displayHeight, fps = 30), microphone = false)
+                AirPlayDisplayConfig(displayWidth, displayHeight, fps = 30),
+                cluster = CarPlayClusterDisplay.config(640, 360, scalePercent = 100,
+                    baseSafeArea = CarPlayClusterDisplay.VIRTUAL_SAFE_AREA_PERCENT),
+                microphone = false)
             val mediaSink = AndroidMediaSink(video.holder.surface, videoWidth = displayWidth, videoHeight = displayHeight,
                 context = this, onAudioDiagnostic = { line("Audio: $it") }).also { sink = it }
-            val media = CarPlayMediaEngine(mediaSink, microphoneEnabled = false)
+            mediaSink.setSurface(111, clusterVideo.holder.surface)
+            val observedSink = object : MediaSink by mediaSink {
+                override fun onScreenStreamActive(type: Int, active: Boolean) {
+                    mediaSink.onScreenStreamActive(type, active)
+                    line("Video stream type=$type active=$active")
+                    if (type == 111) main.post { clusterStatus.text = "Cluster · stream 111 · ${if (active) "connected, waiting for video" else "ended"}" }
+                }
+                override fun setVideoDiagnosticHandler(type: Int, handler: (String) -> Unit) {
+                    mediaSink.setVideoDiagnosticHandler(type) { message ->
+                        handler(message)
+                        if (type == 111 && message == "first frame rendered") {
+                            line("PASS: separate cluster video stream 111 rendered")
+                            main.post { clusterStatus.text = "Cluster · stream 111 · VIDEO RECEIVED" }
+                        }
+                    }
+                }
+            }
+            val media = CarPlayMediaEngine(observedSink, microphoneEnabled = false)
             val listener = object : AirPlaySessionListener {
                 override fun onTcpAccepted(event: AirPlayTcpAccepted) { line("AirPlay TCP accepted") }
                 override fun onSessionActive(session: AirPlaySession) {
@@ -176,6 +222,8 @@ class MacUsbCarPlayActivity : Activity(), SurfaceHolder.Callback {
         runCatching { sink?.close() }
         Unit
     }
+
+
 
     override fun surfaceCreated(holder: SurfaceHolder) { surfaceReady.countDown() }
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}

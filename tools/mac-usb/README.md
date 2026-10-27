@@ -76,3 +76,13 @@ Start actual route guidance in the iPhone app to test it; displaying a map alone
 These local logs can contain street names and route details. They are not written to logcat or committed to this repository.
 
 Live navigation validation on 2026-10-27: with route guidance started in 2GIS, this lab received `0x5201` and `0x5202`, including route state, ETA, remaining distance/time and two maneuver records. `0x5204` was not observed on that short stationary route; this does not establish whether 2GIS supports lane output on other routes. Dragging the panel was tested over live video. Compact (960×540) and full (1920×720) layouts were inspected at 1.3× font scale, then the emulator's original settings were restored.
+
+## Separate instrument-cluster video
+
+The lab also advertises a 640×360 instrument-cluster display using the existing `CarPlayClusterDisplay` profile, 100% scale, the virtual safe area, and `maps:/car/instrumentcluster/map` as its initial URL. Its stream type 111 is decoded onto a second SurfaceView at the bottom right (bottom left on compact screens to avoid the log panel), independently of the main CarPlay surface. The cluster window takes no touch input. Navigation logs remain available above it.
+
+The status distinguishes stream setup from an actually decoded frame: `Video stream type=111 active=true` is only the connection; `PASS: separate cluster video stream 111 rendered` is the decoder's first rendered-frame callback. The displayed picture must still be inspected to establish which navigation content the phone supplied.
+
+This is CarPlay's instrument-cluster video facility ([Apple WWDC19](https://developer.apple.com/videos/play/wwdc2019/252/)). Navigation apps declare support through an instrument-cluster scene ([Apple documentation](https://developer.apple.com/documentation/bundleresources/information-property-list/uiapplicationscenemanifest/cpsupportsinstrumentclusternavigationscene)); metadata delivery alone does not establish that a particular app renders a second map.
+
+Live proof on 2026-10-27: the USB iPhone opened main stream 110 and cluster stream 111 simultaneously, and both decoder callbacks confirmed rendered frames. With 2GIS guidance active, the main screen showed its full navigation UI while stream 111 showed an independent simplified route map with the position marker and traffic coloring. The cluster map also remained visible while the main screen showed the CarPlay app grid. This verifies the second stream on this Mac/emulator/iPhone setup; it is not a vehicle display-output test.
