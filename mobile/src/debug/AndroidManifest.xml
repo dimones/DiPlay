@@ -4,4 +4,6 @@
     <application android:label="DiPlay HUD Test" tools:replace="android:label">
     <receiver android:name="com.shilapi.xcertplay.hud.StarterBridgeReceiver" android:exported="true" android:permission="android.permission.DUMP" />
     <activity android:name="com.shilapi.xcertplay.hud.StandaloneHudDemoActivity" android:exported="true" android:permission="android.permission.DUMP" />
+    <activity android:name="com.shilapi.xcertplay.MacUsbLabActivity" android:exported="true" android:permission="android.permission.DUMP" />
+    <activity android:name="com.shilapi.xcertplay.MacUsbCarPlayActivity" android:exported="true" android:permission="android.permission.DUMP" />
     </application></manifest>

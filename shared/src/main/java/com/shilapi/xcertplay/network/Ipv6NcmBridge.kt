@@ -3,7 +3,7 @@ package com.shilapi.xcertplay.network
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.shilapi.xcertplay.transport.EthernetIpv6Codec
-import com.shilapi.xcertplay.transport.NcmUsbBridge
+import com.shilapi.xcertplay.transport.EthernetFrameTransport
 import java.io.Closeable
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -20,7 +20,7 @@ import java.util.concurrent.locks.LockSupport
  * mirroring LIVI's reliance on the host kernel for NDP on its TAP interface.
  */
 class Ipv6NcmBridge(
-    private val ncm: NcmUsbBridge,
+    private val ncm: EthernetFrameTransport,
     private val tun: ParcelFileDescriptor,
     private val hostMac: ByteArray,
     private val onError: (Throwable) -> Unit,

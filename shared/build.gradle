@@ -22,7 +22,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-    ndkVersion = '28.2.13676358'
+    // Optional local lab override; official builds keep the upstream NDK version.
+    ndkVersion = providers.gradleProperty('diplayNdkVersion').getOrElse('28.2.13676358')
     externalNativeBuild {
         ndkBuild {
             path = file('src/main/jni/Android.mk')

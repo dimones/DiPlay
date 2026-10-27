@@ -17,7 +17,7 @@ import com.shilapi.xcertplay.airplay.AirPlaySession
 import com.shilapi.xcertplay.airplay.AirPlaySessionListener
 import com.shilapi.xcertplay.airplay.PairingStore
 import com.shilapi.xcertplay.mfi.MfiAuthenticator
-import com.shilapi.xcertplay.transport.NcmUsbBridge
+import com.shilapi.xcertplay.transport.EthernetFrameTransport
 import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -75,7 +75,7 @@ class CarPlayVpnService : VpnService() {
 
     @Synchronized
     fun attach(
-        ncm: NcmUsbBridge,
+        ncm: EthernetFrameTransport,
         linkLocal: String,
         hostMac: ByteArray,
         config: AirPlayConfig,
